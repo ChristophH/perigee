@@ -1,0 +1,20 @@
+Package: Perigee
+Type: Package
+Title: Cell Type Classification
+Version: 0.1.0
+Authors@R: person(given = 'Christoph', family = 'Hafemeister', email = 'christoph.hafemeister@nyu.edu', role = c('aut', 'cre'), comment = c(ORCID = '0000-0001-6365-8254'))
+Description: This package provides training and prediction methods, and 
+    pre-trained models for cell type classification of single-cell data.
+License: GPL-3 | file LICENSE
+Encoding: UTF-8
+LazyData: true
+Depends: R (>= 3.5.0)
+Imports: 
+    stats,
+    utils,
+    sctransform,
+    Matrix,
+    dplyr,
+    magrittr,
+    rlang
+RoxygenNote: 7.1.1

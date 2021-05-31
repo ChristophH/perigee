@@ -1,0 +1,105 @@
+---
+title: "Intro to Perigee"
+author: "Christoph Hafemeister"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    highlight: pygments
+    df_print: kable
+---
+
+```{r setup, include = FALSE}
+library('ggplot2')
+library('knitr')
+knit_hooks$set(optipng = hook_optipng)
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  cache = FALSE,
+  warning = FALSE,
+  digits = 2,
+  tidy = TRUE,
+  tidy.opts = list(width.cutoff=80),
+  optipng = '-o 5 -strip all -quiet',
+  fig.width=8, fig.height=4, dpi=100, out.width = '90%'
+)
+old_theme <- theme_set(theme_bw(base_size=10))
+options(tibble.width = Inf)
+set.seed(6646428)
+```
+
+## Introduction
+
+The Perigee package provides training and prediction methods for cell type classification of single-cell data. Some pre-trained models come as part of the package.
+
+Perigee classifies every cell on its own, i.e. the context (composition of the dataset) is irrelevant and even a single cell can be classified. Cell type prediction is fast, taking about 6 seconds for 11k cells and the 30 cell type human PBMC model.
+
+## PBMC cell type prediction
+
+As a first example we will show how to use a pre-trained model to predict cell types.
+
+As example data we load the public 10x Genomics 10k PBMC v3 raw counts (11,769 cells)
+```{r}
+counts <- Seurat::Read10X_h5(filename = '~/Projects/data_warehouse/raw_public_10x/pbmc_10k_v3_filtered_feature_bc_matrix.h5')
+```
+
+Type prediction (aka label transfer) is done using the `pg_predict` function. The `pg_model_human_pbmc` object is provided with the package.
+```{r}
+library('Perigee')
+prediction <- pg_predict(pg_model = pg_model_human_pbmc, counts = counts)
+head(prediction)
+as.data.frame(table(prediction$label, useNA = 'always'))
+```
+
+## Compare to Azimuth
+
+The data used above is the same as the demo dataset used in [Azimuth](https://app.azimuth.hubmapconsortium.org/app/human-pbmc). How do the predictions compare? 
+
+Load the results obtained from Azimuth (Azimuth version: 0.3.2; Seurat version: 4.0.0; Reference version: 1.0.0; default parameters; web-app took 82 seconds for visualization, label transfer, protein signal transfer, DE testing).
+```{r}
+azimuth_pred <- read.delim('~/Projects/data_warehouse/raw_public_10x/pbmc_10k_v3_azimuth_pred.tsv', row.names = 1)
+# make sure predictions are in the same order
+identical(rownames(prediction), rownames(azimuth_pred))
+head(azimuth_pred)
+as.data.frame(table(azimuth_pred$predicted.celltype.l2))
+```
+
+For each cell type, get Jaccard similarity coefficient of the two predictions (intersection over union of cells predicted to be of a given type)
+```{r}
+cell_types <- union(prediction$label, azimuth_pred$predicted.celltype.l2)
+cell_types <- cell_types[!is.na(cell_types)]
+jsc <- sapply(cell_types, function(type) {
+  tab <- table(factor(prediction$label == type, levels = c(FALSE, TRUE)),
+               factor(azimuth_pred$predicted.celltype.l2 == type, levels = c(FALSE, TRUE)))
+  tab[2,2] / (tab[1,2] + tab[2,2] + tab[2,1])
+})
+sort(jsc, decreasing = TRUE)
+```
+
+Visually compare the predictions using the Azimuth UMAP coordinates.
+```{r}
+azimuth_umap <- readRDS('~/Projects/data_warehouse/raw_public_10x/pbmc_10k_v3_azimuth_umap.Rds')
+df <- cbind(prediction, azimuth_pred, azimuth_umap@cell.embeddings)
+df$label <- factor(df$label, levels = sort(cell_types))
+df$predicted.celltype.l2 <- factor(df$predicted.celltype.l2, levels = sort(cell_types))
+library('ggplot2')
+ggplot(df, aes(UMAP_1, UMAP_2, color = label)) + geom_point()
+ggplot(df, aes(UMAP_1, UMAP_2, color = predicted.celltype.l2)) + geom_point()
+```
+
+The cells where the two methods disagree tend to have a lower prediction score in Azimuth
+```{r}
+ggplot(df, aes(label == predicted.celltype.l2, predicted.celltype.l2.score)) + geom_violin()
+```
+
+TODO: Look in depth at prediction differences.
+
+
+## Session info 
+
+Session info
+```{r}
+sessionInfo()
+```

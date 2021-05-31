@@ -1,0 +1,73 @@
+---
+title: "Train model for Human PBMC"
+author: "Christoph Hafemeister"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    highlight: pygments
+    df_print: kable
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  cache = FALSE,
+  warning = FALSE,
+  digits = 2,
+  tidy = TRUE,
+  tidy.opts = list(width.cutoff=80)
+)
+options(tibble.width = Inf)
+set.seed(6646428)
+```
+
+## Introduction
+
+We use the Human PBMC [Azimuth reference](https://azimuth.hubmapconsortium.org/references/#Human%20-%20PBMC) of 161,764 cells grouped into 30 types (annotation level 2). 
+
+
+[Azimuth](https://azimuth.hubmapconsortium.org/) is a [Seurat](https://satijalab.org/seurat/) workflow that leverages high-quality references to automate visualization and annotation of scRNA-seq data. See [Hao and Hao et al, bioRvix 2020](https://satijalab.org/v4preprint) for details.
+
+## Load the Azimuth human PBMC data to use as training data
+
+```{r}
+library('Matrix')
+
+s_multi <- SeuratDisk::Connect(filename = '~/Downloads/pbmc_multimodal.h5seurat')
+counts <- Seurat::as.sparse(s_multi[["assays/SCT/counts"]])
+features <- as.character(as.array(s_multi[["assays/SCT/features"]]))
+meta_data <- as.data.frame(s_multi[["meta.data"]])
+dimnames(counts) <- list(features, rownames(meta_data))
+celltype <- factor(meta_data$celltype.l2)
+```
+
+## Load pre-calculated DE results
+
+The DE test was run with the following commands (took ca. 3 hours)
+```{r, eval=FALSE}
+de_res <- sctransform::diff_mean_test(y = counts, group_labels = celltype, 
+                                      R = 499, log2FC_th = 0, mean_th = 0.05,
+                                      compare = 'all_vs_all', verbosity = 1)
+saveRDS(de_res, file = '~/Downloads/pbmc_multimodal_de_res_all_vs_all.rds')
+```
+
+```{r}
+de_res <- readRDS(file = '~/Downloads/pbmc_multimodal_de_res_all_vs_all.rds')
+```
+
+## Train the model
+
+```{r}
+pg_model_human_pbmc <- Perigee::pg_train(
+  counts = counts, cell_labels = celltype, de_res = de_res,
+  max_cells = 5000, exclude = 'Doublet', verbosity = 2)
+```
+
+## Save the model
+
+```{r}
+save(pg_model_human_pbmc, file = '../data/pg_model_human_pbmc.rda')
+```
