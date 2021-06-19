@@ -86,7 +86,7 @@ pg_train <- function(counts, cell_labels, de_res = NULL, max_cells = NULL,
       counts_log@x <- log(counts_log@x + 1)
       tmp <- crossprod(counts_log, Matrix(mean_diff))
       c_mag <- sqrt(colSums(counts_log^2))
-      diff_cos_sim <- tmp / c_mag
+      diff_cos_sim <- as.numeric(tmp / c_mag)
 
       # get BAC-based threshold - bootstrap the process and keep 95% confidence interval
       thv <- get_th(type = rep(x = c(label1, label2), times = c(ncol(counts1_goi), ncol(counts2_goi))),
@@ -112,10 +112,10 @@ pg_train <- function(counts, cell_labels, de_res = NULL, max_cells = NULL,
 
       length_out <- 101
       # specificity will be score of group1
-      spec_approx <- data.frame(dcs = seq(from = min(diff_cos_sim), to = max(diff_cos_sim), length.out = length_out))
+      spec_approx <- data.frame(dcs = seq(from = min(diff_cos_sim, na.rm = TRUE), to = max(diff_cos_sim, na.rm = TRUE), length.out = length_out))
       spec_approx$value <- approx(x = diff_cos_sim, y = spec, xout = spec_approx$dcs)$y
       # sensitivity will be score of group2
-      sens_approx <- data.frame(dcs = seq(from = min(diff_cos_sim), to = max(diff_cos_sim), length.out = length_out))
+      sens_approx <- data.frame(dcs = seq(from = min(diff_cos_sim, na.rm = TRUE), to = max(diff_cos_sim, na.rm = TRUE), length.out = length_out))
       sens_approx$value <- approx(x = diff_cos_sim, y = sens, xout = sens_approx$dcs)$y
 
       # potential optimization: cut off repetitive values from head and tail
