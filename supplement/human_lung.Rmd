@@ -1,0 +1,72 @@
+---
+title: "Train model for Human Lung"
+author: "Christoph Hafemeister"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    highlight: pygments
+    df_print: kable
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  cache = FALSE,
+  warning = FALSE,
+  digits = 2,
+  tidy = TRUE,
+  tidy.opts = list(width.cutoff=80)
+)
+options(tibble.width = Inf)
+set.seed(6646428)
+```
+
+## Introduction
+
+We use the Human Lung [Azimuth reference](https://azimuth.hubmapconsortium.org/references/#Human%20-%20Lung) of 65,662 cells grouped into 39 types (annotation level 1). 
+
+
+[Azimuth](https://azimuth.hubmapconsortium.org/) is a [Seurat](https://satijalab.org/seurat/) workflow that leverages high-quality references to automate visualization and annotation of scRNA-seq data. See [Hao and Hao et al, bioRvix 2020](https://satijalab.org/v4preprint) for details.
+
+## Load the Azimuth Human Lung data to use as training data
+
+```{r}
+library('Matrix')
+library('Seurat')
+
+counts <- readRDS('~/Projects/data_warehouse/raw_misc/Travaglini2020/krasnow_hlca_10x_UMIs.rds')
+meta <- readRDS('~/Projects/data_warehouse/raw_misc/Travaglini2020/krasnow_hlca_10x_metadata.rds')
+ref <- readRDS('~/Projects/data_warehouse/raw_misc/Travaglini2020/azimuth_ref_human_lung_210602.Rds')
+celltype <- factor(ref@meta.data$annotation.l1)
+```
+
+## Load pre-calculated DE results
+
+The DE test was run with the following commands (took ca. 1.5 hours)
+```{r, eval=FALSE}
+de_res <- sctransform::diff_mean_test(y = counts, group_labels = celltype, 
+                                      R = 499, log2FC_th = 0, mean_th = 0.05,
+                                      compare = 'all_vs_all', verbosity = 1)
+saveRDS(de_res, file = '~/Projects/data_warehouse/raw_misc/Travaglini2020/human_lung_de_res_all_vs_all.rds')
+```
+
+```{r}
+de_res <- readRDS(file = '~/Projects/data_warehouse/raw_misc/Travaglini2020/human_lung_de_res_all_vs_all.rds')
+```
+
+## Train the model
+
+```{r}
+pg_model_human_lung <- Perigee::pg_train(
+  counts = counts, cell_labels = celltype, de_res = de_res,
+  max_cells = 5000, verbosity = 2)
+```
+
+## Save the model
+
+```{r}
+save(pg_model_human_lung, file = '../data/pg_model_human_lung.rda')
+```

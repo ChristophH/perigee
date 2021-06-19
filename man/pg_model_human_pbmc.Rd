@@ -14,7 +14,7 @@ A list - the output of Perigee::pg_train
 pg_model_human_pbmc
 }
 \description{
-Model trained on Human PBMC. 29 non-doublet cell types.
+Model trained on human PBMC. 29 non-doublet cell types.
 See https://azimuth.hubmapconsortium.org/references/#Human\%20-\%20PBMC (annotation level 2).
 }
 \keyword{datasets}
